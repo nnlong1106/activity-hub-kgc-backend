@@ -19,7 +19,7 @@ studentSchema.pre('save', async function (next) {
     const student = this;
 
     try {
-        student.fullName = student.firstName + ' ' + student.lastName;
+        student.fullName = student.lastName + ' ' + student.firstName;
         student.studentId = student.studentId.trim().toUpperCase();
         next();
     } catch (error) {

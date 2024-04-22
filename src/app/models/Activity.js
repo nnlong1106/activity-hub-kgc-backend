@@ -13,6 +13,7 @@ const activitySchema = new Schema({
             {
                 student: { type: Schema.Types.ObjectId, ref: 'Student' },
                 point: Number,
+                note: String,
             },
         ],
         default: [],
