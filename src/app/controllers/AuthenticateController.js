@@ -13,7 +13,7 @@ class AuthenticateController {
     register = async (req, res) => {
         try {
             let { username, password, studentId } = req.body;
-            studentId = studentId.toUpperCase();
+            studentId = studentId.trim().toUpperCase();
             // Kiểm tra định dạng email hợp lệ
             const emailRegex = /^[a-zA-Z0-9._%+-]+@kgc\.edu\.vn$/i;
             if (!emailRegex.test(username)) {
@@ -29,7 +29,11 @@ class AuthenticateController {
             // Kiểm tra xem người dùng đã tồn tại trong cơ sở dữ liệu chưa
             const userExists = await User.exists({ studentId });
             if (userExists) {
-                return res.status(409).json({ error: 'Người dùng đã tồn tại' });
+                return res.status(409).json({ error: 'MSSV đã đăng ký tài khoản' });
+            }
+            userExists = await User.exists({ username });
+            if (userExists) {
+                return res.status(409).json({ error: 'Email đã đăng ký tài khoản' });
             }
 
             // Gửi OTP qua email
@@ -40,7 +44,14 @@ class AuthenticateController {
             }
 
             // Mã OTP đã được gửi thành công, lưu thông tin user vào database với mật khẩu là OTP
-            const result = await OTP.create({ email: username, otp: otpResult.otp, password, studentId });
+            const hashedPassword = await bcrypt.hash(password, salts);
+            const result = await OTP.create({
+                email: username,
+                otp: otpResult.otp,
+                password: hashedPassword,
+                studentId,
+            });
+
             return res.json({
                 success: true,
                 message: 'OTP đã được gửi đến email của bạn',
@@ -60,15 +71,14 @@ class AuthenticateController {
             if (!otpResult) {
                 return res.status(401).json({ error: 'Xác thực OTP thất bại' });
             }
-            const hashedPassword = bcrypt.hash(otpResult.password, salts);
 
             const result = await User.create({
                 username: email,
-                password: hashedPassword,
+                password,
                 studentId: otpResult.studentId,
             });
             console.log(`Add 1 user: ${result}`);
-            return res.redirect('/login');
+            return res.json({ success: true, redirect: '/login' });
         } catch (error) {
             console.log(error);
             res.status(500).json({
@@ -88,7 +98,7 @@ class AuthenticateController {
             // Cập nhật mật khẩu mới vào cơ sở dữ liệu
             await User.findOneAndUpdate({ username: user.username }, { password: hashedPassword });
 
-            res.redirect('/login');
+            res.json({ success: true, redirect: '/login' });
         } catch (error) {
             console.log(error);
             res.status(500).json({
@@ -185,7 +195,7 @@ class AuthenticateController {
                 return res.json({
                     success: true,
                     token,
-                    user: { username, studentId, name, role, active },
+                    user: { username, studentId, name, role },
                 });
             } else {
                 return res.status(401).json({
